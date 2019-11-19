@@ -4,18 +4,32 @@
 
 # Network inference algorithms
 abstract type AbstractNetworkInference end
+mutable struct CorrelationNetworkInference <: AbstractNetworkInference
+    type::String
+    signed::Bool
+    values::Union{Array, Nothing}
+end
 struct MINetworkInference <: AbstractNetworkInference end
 struct CLRNetworkInference <: AbstractNetworkInference end
 struct PUCNetworkInference <: AbstractNetworkInference end
 struct PIDCNetworkInference <: AbstractNetworkInference end
 
+# correlation trait
+get_correlation(::CorrelationNetworkInference) = true
+get_correlation(::MINetworkInference) = false
+get_correlation(::CLRNetworkInference) = false
+get_correlation(::PUCNetworkInference) = false
+get_correlation(::PIDCNetworkInference) = false
+
 # Context trait
+apply_context(::CorrelationNetworkInference) = false
 apply_context(::MINetworkInference) = false
 apply_context(::CLRNetworkInference) = true
 apply_context(::PUCNetworkInference) = false
 apply_context(::PIDCNetworkInference) = true
 
 # PUC trait
+get_puc(::CorrelationNetworkInference) = false
 get_puc(::MINetworkInference) = false
 get_puc(::CLRNetworkInference) = false
 get_puc(::PUCNetworkInference) = true
@@ -44,6 +58,38 @@ function get_joint_probabilities(node1, node2, estimator)
     probabilities2 = sum(probabilities, dims = 1)
 
     return (probabilities, probabilities1, probabilities2)
+
+end
+
+# get correlation between all pairs of Nodes
+function get_correlation_scores(inference::AbstractNetworkInference, nodes, number_of_nodes)
+
+    function get_correlation(i, j, correlation_scores)
+
+        if inference.type == "Pearson"
+            corr = cor(inference.values[i,:], inference.values[j,:])
+        elseif inference.type == "Spearman"
+            corr = corspearman(inference.values[i,:], inference.values[j,:])
+        end
+
+        if !inference.signed
+            corr = abs(corr)
+        end
+
+        correlation_scores[i, j] = corr
+        correlation_scores[j, i] = corr
+
+    end
+
+    correlation_scores = SharedArray{Float64}(number_of_nodes, number_of_nodes)
+
+    @sync @distributed for i in 1:number_of_nodes
+        for j in i+1:number_of_nodes
+            get_correlation(i, j, correlation_scores)
+        end
+    end
+
+    correlation_scores
 
 end
 
@@ -205,7 +251,9 @@ function InferredNetwork(inference::AbstractNetworkInference, nodes::Array{Node}
     edges = Array{Edge}(undef, binomial(number_of_nodes, 2))
 
     # Get the raw scores
-    if get_puc(inference)
+    if get_correlation(inference)
+        scores = get_correlation_scores(inference, nodes, number_of_nodes)
+    elseif get_puc(inference)
         scores = get_puc_scores(nodes, number_of_nodes, estimator, base)
     else
         scores = get_mi_scores(nodes, number_of_nodes, estimator, base)

@@ -6,6 +6,8 @@ using Distributed
 using Pkg
 using DelimitedFiles
 using SharedArrays
+using Statistics
+using StatsBase
 
 export
     # Common types
@@ -14,6 +16,7 @@ export
     InferredNetwork,
     # Network inference algorithms
     AbstractNetworkInference,
+    CorrelationNetworkInference,
     MINetworkInference,
     CLRNetworkInference,
     PUCNetworkInference,

@@ -17,11 +17,12 @@ Arguments:
 * `discretizer="bayesian_blocks"`: algorithm for discretizing the data
 * `estimator="maximum_likelihood"`: algorithm for estimating probabilities
 * `number_of_bins=10`: will be overwritten if using "bayesian_blocks"
+* `get_values`: if true, will return an array with measurement values for use in e.g. getting correlation
 
 The "maximum_likelihood" estimator is recommended for PUC and PIDC.
 """
 function get_nodes(data_file_path::String; delim::Union{Char,Bool} = false, discretizer = "bayesian_blocks",
-    estimator = "maximum_likelihood", number_of_bins = 10)
+    estimator = "maximum_likelihood", number_of_bins = 10, get_values = false)
 
     if delim == false
         lines = readdlm(open(data_file_path); skipstart = 1)
@@ -31,13 +32,22 @@ function get_nodes(data_file_path::String; delim::Union{Char,Bool} = false, disc
     number_of_nodes = size(lines, 1)
     nodes = Array{Node}(undef, number_of_nodes)
 
-    for i in 1:number_of_nodes
-        nodes[i] = Node(lines[i:i, 1:end], discretizer, estimator, number_of_bins)
+    if !get_values
+        for i in 1:number_of_nodes
+            nodes[i] = Node(lines[i,:], discretizer, estimator, number_of_bins)
+        end
+        return nodes
+    else
+        values = Array{Float64}(undef,number_of_nodes,size(lines,2)-1)
+        for i in 1:number_of_nodes
+            nodes[i] = Node(lines[i,:], discretizer, estimator, number_of_bins)
+            values[i,:] = lines[i,2:end]
+        end
+        return nodes, values
     end
 
-    return nodes
-
 end
+
 
 """
     write_network_file(file_path::String, inferred_network::InferredNetwork)
@@ -181,16 +191,29 @@ function infer_network(data_file_path::String, inference::AbstractNetworkInferen
     out_file_path = "")
 
     println("Getting nodes...")
-    nodes = get_nodes(
-        data_file_path,
-        delim = delim,
-        discretizer = discretizer,
-        estimator = estimator,
-        number_of_bins = number_of_bins
-    )
+    if typeof(inference) != CorrelationNetworkInference
+        nodes = get_nodes(
+            data_file_path,
+            delim = delim,
+            discretizer = discretizer,
+            estimator = estimator,
+            number_of_bins = number_of_bins
+        )
+    elseif typeof(inference) == CorrelationNetworkInference
+        nodes, values = get_nodes(
+            data_file_path,
+            delim = delim,
+            get_values = true
+        )
+        inference.values = values
+    end
 
     println("Inferring network...")
-    inferred_network = InferredNetwork(inference, nodes, estimator = estimator, base = base)
+    if typeof(inference) != CorrelationNetworkInference
+        inferred_network = InferredNetwork(inference, nodes, estimator = estimator, base = base)
+    elseif typeof(inference) == CorrelationNetworkInference
+        inferred_network = InferredNetwork(inference, nodes)
+    end
 
     if length(out_file_path) > 1
         println("Writing network to file...")

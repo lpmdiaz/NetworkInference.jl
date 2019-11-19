@@ -9,10 +9,10 @@ NetworkInference is a package for inferring (undirected) networks, given a set o
 
 Some things to note:
 * The package was originally written for inferring biological networks using gene expression data, hence the use of "network" instead of "graph". However, these methods could be applied to other types of data.
-* Four network inference algorithms are currently implemented (MI, CLR, PUC and PIDC, explained in [[1]](#references)), but we plan to include more.
+* Five network inference algorithms are currently implemented (MI, CLR, PUC and PIDC, explained in [[1]](#references), as well as two flavours of correlation (Pearson and Spearman, both signed or unsigned)), but we plan to include more.
 * Networks are assumed to be __undirected__, since all the algorithms included so far infer undirected networks. Hence:
 	* in the `Edge` type, the order of the nodes is arbitrary
-	* when a network is written to file, edges are written in both directions, becuase downstream analyses sometimes require this
+	* when a network is written to file, edges are written in both directions, because downstream analyses sometimes require this
 	* the `InferredNetwork` type contains a list of edges, with one edge for each pair of genes, in which the order of the genes is arbitrary
 
 ## Installation
@@ -30,6 +30,8 @@ First include the package at the start of your script or interactive session:
 Given a data file and an inference algorithm, you can infer a network with a single function call:
 
 `infer_network(<path to data file>, PIDCNetworkInference())`
+or
+`infer_network(<path to data file>, CorrelationNetworkInference(type, signed, nothing))` for correlation (`nothing` will be replaced by values from the data file -- see [implemented algorithms](#Inference-algorithms-currently-implemented) for details)
 
 This will return an `InferredNetwork` type. You can also write the inferred network to file, using the `out_file_path` keyword argument. See also [Options](#options).
 
@@ -38,6 +40,8 @@ This will return an `InferredNetwork` type. You can also write the inferred netw
 First make an array of `Node`s from your data:
 
 `nodes = get_nodes(<path to data file>)`
+or
+`nodes, values = get_nodes(<path to data file>, get_values = true)` for correlation
 
 Currently the package assumes the file is of the format:
 * line 1: headers (these are discarded for now)
@@ -46,12 +50,22 @@ Currently the package assumes the file is of the format:
 Then infer a network:
 
 `inferred_network = InferredNetwork(PIDCNetworkInference(), nodes)`
+or
+`inferred_network = InferredNetwork(CorrelationNetworkInference(type, signed, values), nodes)` for correlation (see [implemented algorithms](#Inference-algorithms-currently-implemented) for details)
 
 An `InferredNetwork` has an array of nodes and an array of edges between all possible node pairs (sorted in descending order of edge weight, i.e. confidence of the edge existing in the true network).
 
 You can write the network to file:
 
 `write_network_file(<path to output file>, inferred_network)`
+
+### Inference algorithms currently implemented
+
+* `MINetworkInference`
+* `CLRNetworkInference`
+* `PUCNetworkInference`
+* `PIDCNetworkInference`
+* `CorrelationNetworkInference` -- requires a slightly different syntax due to the structure definition: `CorrelationNetworkInference(type, signed, values)` with type either `"Pearson"` or `"Spearman"`, signed either `true` or `false` with false returning absolute values, and values either `nothing` in the one step case or the second output of `nodes, values = get_nodes(<path to data file>, get_values = true)` in the multiple steps case.
 
 ## Options
 
@@ -80,7 +94,7 @@ The following keyword arguments can be passed in to `infer_network`:
 **out_file_path** (`String`) Path to the output network file
 * `""` (default) No file will be written
 
-Defaults for **discretizer** and **estimator** are explained in [[1]](#references)
+Defaults for **discretizer** and **estimator** are explained in [[1]](#references). Note that the correlation methods do not use some of these options (discretizer, estimator, number_of_bins, or base).
 
 ## Scope
 
