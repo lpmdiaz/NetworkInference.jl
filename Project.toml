@@ -2,3 +2,8 @@ name = "NetworkInference"
 uuid = "99f40158-ab03-49cc-8aa0-bf53e7235300"
 version = "0.1.0"
 author = ["Thalia Chan"]
+
+[deps]
+InformationMeasures = "96684042-fbdc-5399-9b8e-d34e539a126c"
+Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
+StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
